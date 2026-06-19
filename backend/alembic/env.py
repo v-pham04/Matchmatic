@@ -1,7 +1,7 @@
-import os
-from pathlib import Path
 from logging.config import fileConfig
-
+from app.config import settings
+from app.database import Base
+from app.models import user, job
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
@@ -10,47 +10,6 @@ from alembic import context
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-
-
-def _database_url_from_root_env() -> str | None:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    if not env_path.exists():
-        return None
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        if key.strip() == "DATABASE_URL":
-            return value.strip().strip('"').strip("'")
-    return None
-
-# Keep Alembic independent from full runtime secrets when importing app modules.
-for env_key in (
-    "GEMINI_API_KEY",
-    "SUPABASE_URL",
-    "SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "SECRET_KEY",
-):
-    os.environ.setdefault(env_key, "placeholder")
-
-db_url = (
-    os.getenv("DATABASE_URL")
-    or _database_url_from_root_env()
-    or config.get_main_option("sqlalchemy.url")
-)
-if not db_url or db_url.startswith("driver://"):
-    raise RuntimeError(
-        "DATABASE_URL is not configured. Set it in environment or alembic.ini."
-    )
-
-os.environ.setdefault("DATABASE_URL", db_url)
-config.set_main_option("sqlalchemy.url", db_url)
-
-from app.database import Base
-from app.models import job, user
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -81,7 +40,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -100,8 +59,10 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = settings.DATABASE_URL
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

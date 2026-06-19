@@ -1,8 +1,8 @@
-"""initial tables users and jobs
+"""initial tables: users and jobs
 
-Revision ID: fc3866c3d797
+Revision ID: b65e79a73fb7
 Revises: 
-Create Date: 2026-06-19 02:36:09.591514
+Create Date: 2026-06-19 15:04:49.694571
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'fc3866c3d797'
+revision: str = 'b65e79a73fb7'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -32,7 +32,7 @@ def upgrade() -> None:
     sa.Column('country', sa.String(), nullable=True),
     sa.Column('description_raw', sa.Text(), nullable=True),
     sa.Column('posted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('scraped_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('scraped_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('is_processed', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('url')
@@ -47,7 +47,7 @@ def upgrade() -> None:
     sa.Column('job_keywords', sa.ARRAY(sa.String()), nullable=True),
     sa.Column('resume_url', sa.String(), nullable=True),
     sa.Column('resume_text', sa.String(), nullable=True),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email')

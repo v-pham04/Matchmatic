@@ -1,9 +1,10 @@
 from pathlib import Path
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Monorepo: .env lives at repo root (Matchmatic/.env), not in backend/
+ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
-ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str
@@ -16,8 +17,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:5173"
 
-    class Config:
-        env_file = str(ROOT_ENV_FILE)
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8")
+
 
 settings = Settings()
