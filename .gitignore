@@ -1,8 +1,25 @@
 .env
 .env.local
+.env.production
+ 
+# Python
 __pycache__/
 *.pyc
 .venv/
+venv/
+*.egg-info/
+ 
+# Node / React
 node_modules/
 dist/
+.next/
+ 
+# Docker
+*.log
+ 
+# OS files
 .DS_Store
+Thumbs.db
+ 
+# VS Code
+.vscode/
