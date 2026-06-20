@@ -1,4 +1,5 @@
 # Handles reading and updating the logged-in user's profile and settings
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     email: str
     full_name: Optional[str]
     target_market: str

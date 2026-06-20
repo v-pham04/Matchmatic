@@ -1,4 +1,5 @@
 # Handles fetching job listings and their analysis results
+from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -12,7 +13,7 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
  
  
 class JobResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     company: str
     location: Optional[str]
