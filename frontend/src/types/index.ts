@@ -35,3 +35,17 @@ export interface User {
   job_keywords: string[];
 }
 
+export interface JobListing {
+  id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  country: string | null;
+  source: string | null;
+  url: string;
+  posted_at: string | null;
+  scraped_at: string | null;
+  is_processed: boolean;
+}
+
+
