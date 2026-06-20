@@ -16,6 +16,7 @@
     "react-diff-viewer-continued": "^4.2.2",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.18.0",
+    "react-select": "^5.10.2",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
