@@ -60,11 +60,20 @@ class TopCVScraper(BaseScraper):
 
         # TopCV IT category page already shows all tech jobs — 3,000+ listings
         # No keyword search needed — the category does the filtering for us
-        # Vietnamese tech keywords to search within the page title text
-        vn_keywords = [
-            "software", "backend", "frontend", "fullstack", "devops",
-            "cloud", "data", "python", "java", "engineer", "developer",
-            "lập trình", "kỹ sư", "phần mềm"
+        # Roles we actually want — must match at least one of these
+        dev_keywords = [
+            "software", "backend", "frontend", "fullstack", "full stack", "devops",
+            "developer", "engineer", "lập trình", "kỹ sư phần mềm", "kỹ sư lập trình",
+            "data scientist", "data engineer", "machine learning", "ml engineer",
+            "qa engineer", "test engineer", "tester", "devsecops", "sre",
+            "python", "java", "golang", "nodejs", "react", "android", "ios",
+            "lua developer", "embedded", "cloud architect",
+        ]
+        # Sales/BA/design roles that slip through because title contains "phần mềm" or "data"
+        exclude_keywords = [
+            "kinh doanh", "telesales", "tư vấn", "sales", "sale ", " sale",
+            "business analyst", "ba manager", "thiết kế", "designer", "giảng viên",
+            "cnc", "cam ", " nx cam", "phay cnc", "tiện cnc", "gia công",
         ]
 
         logger.info("Loading TopCV IT jobs category page")
@@ -89,15 +98,17 @@ class TopCVScraper(BaseScraper):
                 if not title_el:
                     continue
 
-                title = title_el.inner_text().strip()
+                title = (title_el.inner_text() or "").strip()
                 href = title_el.get_attribute("href") or ""
                 job_url = href if href.startswith("http") else "https://www.topcv.vn" + href
 
-                # Only keep jobs that match tech keywords in the title
                 title_lower = title.lower()
-                is_relevant = any(kw in title_lower for kw in vn_keywords)
+                if any(kw in title_lower for kw in exclude_keywords):
+                    logger.debug(f"Skipping excluded role: {title}")
+                    continue
+                is_relevant = any(kw in title_lower for kw in dev_keywords)
                 if not is_relevant:
-                    logger.debug(f"Skipping non-tech job: {title}")
+                    logger.debug(f"Skipping non-dev job: {title}")
                     continue
 
                 # Company name
@@ -106,7 +117,7 @@ class TopCVScraper(BaseScraper):
                     card.query_selector("[class*='company-name']") or
                     card.query_selector("h4 a")
                 )
-                company = company_el.inner_text().strip() if company_el else "Unknown"
+                company = (company_el.inner_text() or "").strip() if company_el else "Unknown"
 
                 # Location
                 location_el = (
@@ -114,7 +125,7 @@ class TopCVScraper(BaseScraper):
                     card.query_selector("label.address") or
                     card.query_selector("[class*='city']")
                 )
-                location = location_el.inner_text().strip() if location_el else "Vietnam"
+                location = (location_el.inner_text() or "").strip() if location_el else "Vietnam"
 
                 job_id = card.get_attribute("data-job-id") or href.split("/")[-1].split(".")[0]
 
@@ -135,18 +146,50 @@ class TopCVScraper(BaseScraper):
         logger.info(f"TopCV queued {len(card_data)} relevant jobs to scrape")
 
         # Visit each job detail page for the full description
-        for item in card_data[:15]:  # Cap at 15 detail pages per run
+        description_selectors = [
+            "div.job-description",
+            "div#job-detail-description",
+            "div#job-detail-info",
+            ".job-detail__info--content",
+            ".job-detail__content",
+            "div.content-tab",
+            "[class*='job-description']",
+            ".job-detail__box--left",
+            ".job-detail__box--left .content",
+        ]
+
+        for item in card_data:
             try:
                 self.page.goto(item["url"], wait_until="domcontentloaded", timeout=20000)
-                time.sleep(2)
+                time.sleep(3)
 
-                desc_el = (
-                    self.page.query_selector("div.job-description") or
-                    self.page.query_selector("[class*='job-description']") or
-                    self.page.query_selector("div#job-detail-description") or
-                    self.page.query_selector("div.content-tab")
-                )
-                description = desc_el.inner_text().strip() if desc_el else ""
+                description = self.extract_description(description_selectors)
+                if not description:
+                    description = (self.page.evaluate("""
+                        () => {
+                            const remove = document.querySelectorAll(
+                                'nav, header, footer, script, style, [class*="header"], [class*="footer"], [class*="similar"], [class*="related"]'
+                            );
+                            remove.forEach(el => el.remove());
+                            const box = document.querySelector('.job-detail__box--left')
+                                || document.querySelector('.job-detail__content')
+                                || document.querySelector('[class*="job-detail"]');
+                            if (box) return box.innerText.trim();
+                            const text = document.body.innerText;
+                            const markers = ['Mô tả công việc', 'Yêu cầu', 'Job description', 'Mô tả'];
+                            for (const marker of markers) {
+                                const idx = text.indexOf(marker);
+                                if (idx !== -1) return text.substring(idx, idx + 5000);
+                            }
+                            return text.substring(0, 5000);
+                        }
+                    """) or "").strip()
+
+                if not description or len(description) < 100:
+                    logger.warning(f"No description for TopCV: {item['title']}")
+                    continue
+
+                logger.info(f"Scraped: {item['title']} at {item['company']} ({len(description)} chars)")
 
                 results.append({
                     "title": item["title"],
@@ -158,13 +201,8 @@ class TopCVScraper(BaseScraper):
                     "external_id": item["external_id"],
                 })
 
-                logger.info(f"Scraped: {item['title']} at {item['company']}")
-
-                self.page.go_back(wait_until="domcontentloaded")
-                time.sleep(1)
-
             except Exception as e:
-                logger.warning(f"Failed to get TopCV job detail: {e}")
+                logger.warning(f"Failed to get TopCV description for {item.get('title')}: {e}")
                 continue
 
         return results

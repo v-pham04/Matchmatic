@@ -91,7 +91,6 @@ class IndeedScraper(BaseScraper):
 
             logger.info(f"Successfully read {len(card_data)} cards for '{keyword}'")
 
-            # NOW navigate to each job detail page to get the description
             for item in card_data:
                 try:
                     self.page.goto(item["url"], wait_until="domcontentloaded", timeout=20000)
@@ -100,9 +99,34 @@ class IndeedScraper(BaseScraper):
                     desc_el = (
                         self.page.query_selector("#jobDescriptionText") or
                         self.page.query_selector("[class*='jobsearch-jobDescriptionText']") or
-                        self.page.query_selector("[class*='JobDescription']")
+                        self.page.query_selector("[class*='JobDescription']") or
+                        self.page.query_selector("[class*='job-description']") or
+                        self.page.query_selector("[class*='jobDescriptionContent']") or
+                        self.page.query_selector("div[data-testid='job-description']") or
+                        self.page.query_selector("div[data-testid='jobDescriptionText']") or
+                        self.page.query_selector("[class*='description']")
                     )
-                    description = desc_el.inner_text().strip() if desc_el else ""
+
+                    if desc_el:
+                        description = (desc_el.inner_text() or "").strip()
+                        logger.info(f"Scraped: {item['title']} at {item['company']} ({len(description)} chars)")
+                    else:
+                        description = (self.page.evaluate("""
+                            () => {
+                                const remove = document.querySelectorAll(
+                                    'nav, header, footer, script, style, [class*="header"], [class*="footer"], [class*="navbar"], [class*="mosaic"]'
+                                );
+                                remove.forEach(el => el.remove());
+                                const text = document.body.innerText;
+                                const markers = ['Job description', 'Full job description', 'About the job', 'About this role'];
+                                for (const marker of markers) {
+                                    const idx = text.indexOf(marker);
+                                    if (idx !== -1) return text.substring(idx, idx + 4000);
+                                }
+                                return text.substring(0, 4000);
+                            }
+                        """) or "").strip()
+                        logger.warning(f"Used body fallback for Indeed: {item['title']}")
 
                     results.append({
                         "title": item["title"],
@@ -113,8 +137,6 @@ class IndeedScraper(BaseScraper):
                         "posted_at": datetime.now(timezone.utc),
                         "external_id": item["job_id"],
                     })
-
-                    logger.info(f"Scraped: {item['title']} at {item['company']}")
 
                 except Exception as e:
                     logger.warning(f"Failed to get Indeed description for {item.get('title')}: {e}")

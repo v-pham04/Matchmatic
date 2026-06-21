@@ -11,12 +11,12 @@ client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 class GeminiClient:
     """
-    Shared Gemini 2.0 Flash client used by all AI agents.
+    Shared Gemini client used by all AI agents.
     Handles: API calls, retry on failure, token usage logging, JSON parsing.
     """
 
     def __init__(self):
-        self.model = "gemini-2.0-flash"
+        self.model = settings.GEMINI_MODEL
         self.total_input_tokens = 0
         self.total_output_tokens = 0
 

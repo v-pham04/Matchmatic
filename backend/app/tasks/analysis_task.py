@@ -40,6 +40,10 @@ def analyze_job_task(job_id: str, user_id: str):
             logger.warning(f"User {user_id} has no resume — skipping analysis")
             return
 
+        if not job.description_raw or len(job.description_raw.strip()) < 100:
+            logger.warning(f"Job {job_id} has no description — skipping analysis")
+            return
+
         logger.info(f"Analyzing: {job.title} at {job.company} for user {user.email}")
 
         # Step 1 — ATS Scoring

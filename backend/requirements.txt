@@ -9,7 +9,7 @@ supabase
 psycopg2-binary
 celery[redis]
 redis
-google-generativeai
+google-genai
 playwright
 apscheduler
 python-multipart

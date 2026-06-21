@@ -8,7 +8,11 @@ from loguru import logger
 celery_app = Celery(
     "matchmatic",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    backend=settings.REDIS_URL,
+    include=[
+        "app.tasks.scraper_task",
+        "app.tasks.analysis_task",
+    ],
 )
 
 # Configure Celery
@@ -60,3 +64,7 @@ def run_scrapers_task(keywords: list[str] = None, user_id: str = None):
  
     logger.info(f"Scraper task complete: {results}")
     return results
+
+
+# Import so Celery worker registers analyze_job when started with -A app.tasks.scraper_task:celery_app
+import app.tasks.analysis_task  # noqa: F401, E402

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from playwright.sync_api import sync_playwright, Browser, Page
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
+from app.scraper.playwright_env import configure_playwright_browsers
 from app.models.job import Job
 from app.models.scraper_run import ScraperRun
 from loguru import logger
@@ -41,6 +42,21 @@ class BaseScraper(ABC):
         if self.browser:
             self.browser.close()
             logger.info(f"Browser closed for {self.SOURCE_NAME}")
+
+    def extract_description(self, selectors: list[str], min_length: int = 100) -> str:
+        """Try multiple CSS selectors and return the first substantial text block."""
+        for selector in selectors:
+            try:
+                el = self.page.query_selector(selector)
+                if not el:
+                    el = self.page.wait_for_selector(selector, timeout=3000)
+                if el:
+                    text = (el.inner_text() or "").strip()
+                    if len(text) >= min_length:
+                        return text
+            except Exception:
+                continue
+        return ""
  
     def is_duplicate(self, url: str, db: Session) -> bool:
         """Check if we have already saved this job URL. Returns True if it exists."""
@@ -69,6 +85,10 @@ class BaseScraper(ABC):
  
         if self.is_too_old(posted_at):
             logger.debug(f"Too old, skipping: {title} at {company}")
+            return False
+
+        if not description or len((description or "").strip()) < 100:
+            logger.warning(f"Skipping job with no description: {title} at {company}")
             return False
  
         job = Job(
@@ -101,9 +121,11 @@ class BaseScraper(ABC):
         jobs_new = 0
  
         try:
+            configure_playwright_browsers()
+
             with sync_playwright() as playwright:
                 self.launch_browser(playwright)
-                results = self.scrape(keywords)
+                results = self.scrape(keywords) or []
                 jobs_found = len(results)
  
                 for job_data in results:

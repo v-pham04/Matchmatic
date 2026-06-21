@@ -6,12 +6,15 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from playwright.sync_api import sync_playwright
+from app.scraper.playwright_env import configure_playwright_browsers
 import time
 
 def diagnose_topcv():
     print("\n" + "="*60)
     print("DIAGNOSING TOPCV (with stealth)")
     print("="*60)
+
+    configure_playwright_browsers()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
