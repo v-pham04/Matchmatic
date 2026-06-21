@@ -6,6 +6,7 @@ import Settings from "./pages/Settings";
 import ResumeReview from "./pages/ResumeReview";
 import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
+import { Toaster } from "react-hot-toast";
  
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
@@ -22,6 +23,15 @@ export default function App() {
     <BrowserRouter>
       {isAuthenticated ? (
         <div className="min-h-screen bg-gray-50">
+          <Toaster
+          position="bottom-right"
+          toastOptions={{
+            duration: 3000,
+            style: { background: "#1e2a3b", color: "#fff", fontSize: "14px" },
+            success: { iconTheme: { primary: "#16a34a", secondary: "#fff" } },
+            error: { iconTheme: { primary: "#dc2626", secondary: "#fff" } }
+            }}
+            />
           <Navbar />
           <main className="max-w-7xl mx-auto py-6 px-4">
             <Routes>
