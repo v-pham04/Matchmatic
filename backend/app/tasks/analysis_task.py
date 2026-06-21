@@ -4,8 +4,34 @@ from app.models.job import Job
 from app.models.job_analysis import JobAnalysis
 from app.models.user import User
 from loguru import logger
+from app.utils.cache import get_cached_analysis, set_cached_analysis
 import uuid
 
+@celery_app.task(name="analyze_job")
+def analyze_job_task(job_id: str, user_id: str):
+    """Run the full AI analysis pipeline for one job + one user."""
+ 
+    # Check cache FIRST — skip the entire AI pipeline if already analyzed
+    cached = get_cached_analysis(job_id, user_id)
+    if cached:
+        logger.info(f"Returning cached analysis for job {job_id}")
+        return cached
+ 
+    db = SessionLocal()
+    try:
+        # ... rest of the existing analysis code stays the same ...
+ 
+        # ADD THIS at the end, just before the return statement:
+        result = {"score": ats_result["score"], "match_level": ats_result["match_level"]}
+        set_cached_analysis(job_id, user_id, result)
+        return result
+ 
+    except Exception as e:
+        logger.error(f"Analysis failed for job {job_id}: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 @celery_app.task(name="analyze_job")
 def analyze_job_task(job_id: str, user_id: str):
