@@ -20,9 +20,15 @@ export interface JobAnalysis {
   match_level: MatchLevel;
   matching_skills: string[];
   missing_skills: string[];
+  experience_match: "strong" | "partial" | "weak" | null;
+  visa_compatible: boolean | null;
   visa_signal: VisaSignal;
   visa_evidence: string | null;
-  summary: string;
+  summary: string | null;
+}
+
+export interface JobWithAnalysis extends JobListing {
+  analysis?: JobAnalysis;
 }
  
 export interface User {
