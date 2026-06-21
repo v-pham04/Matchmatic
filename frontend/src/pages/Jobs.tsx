@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchJobs } from "../api/jobs";
-import { fetchJobAnalysis } from "../api/analysis";
-import { dismissJob } from "../api/analysis";
+import { fetchJobFeed, fetchJobAnalysis, dismissJob } from "../api/analysis";
 import JobCard from "../components/JobCard";
 import FilterBar from "../components/FilterBar";
 import MatchReportModal from "../components/MatchReportModal";
@@ -20,22 +18,23 @@ export default function Jobs() {
   const [modalAnalysis, setModalAnalysis] = useState<JobAnalysis | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
  
-  useEffect(() => { loadJobs(); }, [filters]);
+  useEffect(() => { loadJobs(); }, [filters, userId]);
  
   async function loadJobs() {
+    if (!userId) {
+      setJobs([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchJobs(
-        filters.country || undefined,
-        1
-      );
+      const data = await fetchJobFeed(userId, {
+        country: filters.country || undefined,
+        matchLevel: filters.matchLevel || undefined,
+      });
       setJobs(data);
- 
-      // Load analyses for all jobs in the background
-      if (userId) {
-        loadAnalyses(data);
-      }
+      loadAnalyses(data);
     } catch {
       setError("Could not load jobs. Make sure the backend is running.");
     } finally {
@@ -83,7 +82,7 @@ export default function Jobs() {
   function handleTailor() {
     toast("Resume tailoring coming in Week 6!", { icon: "🔧" });
     setSelectedJob(null);
-  }  
+  }
 
   const LEVEL_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   const [searchQuery, setSearchQuery] = useState("");
