@@ -1,19 +1,22 @@
 # Handles fetching job listings and their analysis results
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
+from loguru import logger
 from app.database import get_db
 from app.models.job import Job
 from app.models.job_analysis import JobAnalysis
+from app.models.user import User
+from app.models.scraper_run import ScraperRun
 
- 
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
- 
- 
+
+
 class JobResponse(BaseModel):
     id: UUID
     title: str
@@ -25,7 +28,7 @@ class JobResponse(BaseModel):
     posted_at: Optional[datetime]
     scraped_at: Optional[datetime]
     is_processed: bool
- 
+
     class Config:
         from_attributes = True
 
@@ -42,15 +45,12 @@ class JobAnalysisResponse(BaseModel):
     visa_signal: Optional[str]
     visa_evidence: Optional[str]
     summary: Optional[str]
- 
+
     class Config:
         from_attributes = True
 
- 
- 
+
 # GET /jobs — return all jobs, optionally filtered by country
-# ?country=us   or   ?country=vietnam   or leave blank for both
-# ?page=1&limit=20 for pagination
 @router.get("/", response_model=List[JobResponse])
 def get_jobs(
     country: Optional[str] = Query(None),
@@ -65,17 +65,8 @@ def get_jobs(
     jobs = query.order_by(desc(Job.scraped_at)).offset(offset).limit(limit).all()
     return jobs
 
- 
-# GET /jobs/{job_id} — return a single job by ID
-@router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: str, db: Session = Depends(get_db)):
-    from fastapi import HTTPException
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job
 
-# GET /jobs/feed — return only jobs that have been analyzed and meet the score threshold
+# GET /jobs/feed — must be registered before /{job_id} to avoid "feed" being captured as an ID
 @router.get("/feed", response_model=List[JobResponse])
 def get_job_feed(
     user_id: str,
@@ -93,20 +84,15 @@ def get_job_feed(
     4. Are not dismissed by this user
     Sorted by ATS score descending (HIGH first, then MEDIUM, then LOW).
     """
-    # Load user preferences from database
-    from app.models.user import User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="User not found")
-    # Use user saved preferences as defaults
-    # Query params override saved settings if provided
+
     effective_min_score = user.min_match_score or 60
     effective_country = country
     if not effective_country and user.target_market and user.target_market != "both":
         effective_country = user.target_market
- 
-    # Join jobs with their analyses for this specific user
+
     query = (
         db.query(Job)
         .join(JobAnalysis, (JobAnalysis.job_id == Job.id) & (JobAnalysis.user_id == user_id))
@@ -114,71 +100,24 @@ def get_job_feed(
         .filter(JobAnalysis.ats_score >= effective_min_score)
         .filter(JobAnalysis.dismissed == False)
     )
- 
+
     if effective_country:
         query = query.filter(Job.country == effective_country)
- 
+
     if match_level:
         query = query.filter(JobAnalysis.match_level == match_level.upper())
- 
+
     offset = (page - 1) * limit
     jobs = query.order_by(desc(JobAnalysis.ats_score)).offset(offset).limit(limit).all()
     return jobs
 
 
-# GET /jobs/{job_id}/analysis — return the AI analysis for a specific job and user
-@router.get("/{job_id}/analysis", response_model=JobAnalysisResponse)
-def get_job_analysis(job_id: str, user_id: str, db: Session = Depends(get_db)):
-    from fastapi import HTTPException
-    analysis = (
-        db.query(JobAnalysis)
-        .filter(JobAnalysis.job_id == job_id)
-        .filter(JobAnalysis.user_id == user_id)
-        .first()
-    )
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found for this job and user")
-    return analysis
-
-# POST /jobs/{job_id}/dismiss — mark a job as not interested for this user
-@router.post("/{job_id}/dismiss")
-def dismiss_job(job_id: str, user_id: str, db: Session = Depends(get_db)):
-    """
-    Mark a job as dismissed for a specific user.
-    Dismissed jobs no longer appear in the feed.
-    """
-    from fastapi import HTTPException
-    analysis = (
-        db.query(JobAnalysis)
-        .filter(JobAnalysis.job_id == job_id)
-        .filter(JobAnalysis.user_id == user_id)
-        .first()
-    )
-    if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
- 
-    analysis.dismissed = True
-    db.commit()
- 
-    # Also invalidate the Redis cache for this job+user pair
-    from app.utils.cache import invalidate_analysis
-    invalidate_analysis(job_id, user_id)
- 
-    logger.info(f"Job {job_id} dismissed by user {user_id}")
-    return {"message": "Job dismissed successfully"}
- 
-# GET /admin/scraper-runs — see recent scraper run history
+# GET /jobs/admin/scraper-runs — must be registered before /{job_id}
 @router.get("/admin/scraper-runs")
 def get_scraper_runs(limit: int = Query(10, ge=1, le=50), db: Session = Depends(get_db)):
-    """
-    Returns the most recent scraper run records.
-    Use this to check if scraping is working and how many jobs are being found.
-    """
-    from app.models.scraper_run import ScraperRun
-    from sqlalchemy import desc as sqldesc
     runs = (
         db.query(ScraperRun)
-        .order_by(sqldesc(ScraperRun.started_at))
+        .order_by(desc(ScraperRun.started_at))
         .limit(limit)
         .all()
     )
@@ -199,3 +138,48 @@ def get_scraper_runs(limit: int = Query(10, ge=1, le=50), db: Session = Depends(
         }
         for r in runs
     ]
+
+
+# GET /jobs/{job_id} — return a single job by ID
+@router.get("/{job_id}", response_model=JobResponse)
+def get_job(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+# GET /jobs/{job_id}/analysis — return the AI analysis for a specific job and user
+@router.get("/{job_id}/analysis", response_model=JobAnalysisResponse)
+def get_job_analysis(job_id: str, user_id: str, db: Session = Depends(get_db)):
+    analysis = (
+        db.query(JobAnalysis)
+        .filter(JobAnalysis.job_id == job_id)
+        .filter(JobAnalysis.user_id == user_id)
+        .first()
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found for this job and user")
+    return analysis
+
+
+# POST /jobs/{job_id}/dismiss — mark a job as not interested for this user
+@router.post("/{job_id}/dismiss")
+def dismiss_job(job_id: str, user_id: str, db: Session = Depends(get_db)):
+    analysis = (
+        db.query(JobAnalysis)
+        .filter(JobAnalysis.job_id == job_id)
+        .filter(JobAnalysis.user_id == user_id)
+        .first()
+    )
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    analysis.dismissed = True
+    db.commit()
+
+    from app.utils.cache import invalidate_analysis
+    invalidate_analysis(job_id, user_id)
+
+    logger.info(f"Job {job_id} dismissed by user {user_id}")
+    return {"message": "Job dismissed successfully"}
