@@ -1,6 +1,14 @@
-import sys, os
+"""
+Quick single-JD smoke test for all three AI agents.
+
+For the Week 4 joint review session (20 real JDs), use review_prompts.py instead:
+  python review_prompts.py
+"""
+import sys
+import os
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
- 
+
 from app.agents.ats_scorer import run_ats_scorer
 from app.agents.visa_analyzer import run_visa_analyzer
 from app.agents.report_writer import run_report_writer
