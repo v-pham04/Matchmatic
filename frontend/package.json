@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@supabase/supabase-js": "^2.108.2",
     "axios": "^1.18.0",
     "react": "^19.2.6",
     "react-diff-viewer-continued": "^4.2.2",
