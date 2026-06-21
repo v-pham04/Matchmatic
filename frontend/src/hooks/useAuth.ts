@@ -29,18 +29,17 @@ export function useAuth() {
   }, []);
  
   async function handleUser(supabaseUser: any) {
-    // Create or fetch the user in our own database
     try {
-      await client.post("/users/", null, {
+      const { data } = await client.post("/users/", null, {
         params: {
           email: supabaseUser.email,
           full_name: supabaseUser.user_metadata?.full_name ?? "",
-        }
+        },
       });
-      setUserId(supabaseUser.id);
+      setUserId(data.id);
     } catch (err) {
       console.error("Failed to sync user to backend:", err);
-      setUserId(supabaseUser.id); // still set it so the app works
+      setUserId(null);
     }
   }
  

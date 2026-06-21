@@ -1,6 +1,7 @@
 import { useState } from "react";
 import client from "../api/client";
 import ResumeUpload from "../components/ResumeUpload";
+import { useAuth } from "../hooks/useAuth";
 
  
 // The shape of our settings form data
@@ -12,6 +13,7 @@ interface SettingsForm {
 }
  
 export default function Settings() {
+  const { userId } = useAuth();
   const [form, setForm] = useState<SettingsForm>({
     target_market: "both",
     visa_check_enabled: false,
@@ -23,8 +25,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
  
   // For now using a hardcoded user ID — Week 3 will replace this with real auth
-  const USER_ID = "test-user-123";
- 
+  const USER_ID = userId;
+
   const addKeyword = () => {
     const kw = keywordInput.trim();
     if (kw && !form.job_keywords.includes(kw)) {
@@ -38,6 +40,7 @@ export default function Settings() {
   };
  
   const handleSave = async () => {
+    if (!USER_ID) return;
     setSaving(true);
     try {
       await client.patch(`/users/${USER_ID}/settings`, form);
@@ -150,7 +153,7 @@ export default function Settings() {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Your Master Resume
         </label>
-        <ResumeUpload userId={USER_ID} onUploadSuccess={(url) => console.log("Uploaded:", url)} />
+        <ResumeUpload userId={USER_ID ?? ""} onUploadSuccess={(url) => console.log("Uploaded:", url)} />
       </div>
 
  

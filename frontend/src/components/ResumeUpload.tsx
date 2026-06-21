@@ -14,6 +14,11 @@ export default function ResumeUpload({ userId, onUploadSuccess }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
  
   const handleFile = async (file: File) => {
+    if (!userId) {
+      setError("User session not ready. Sign out and sign in again.");
+      return;
+    }
+
     // Only allow PDF and DOCX
     if (!file.name.match(/\.(pdf|docx)$/i)) {
       setError("Please upload a PDF or DOCX file only.");
