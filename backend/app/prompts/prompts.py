@@ -20,8 +20,12 @@ Scoring guide:
 60-79  = MEDIUM (decent match, worth applying with tailoring)
 below 60 = LOW (significant gaps, consider skipping)
 
-Count: exact keyword overlap, required years of experience, seniority alignment,
-and technical stack match.
+Scoring rules (apply strictly):
+- Count exact keyword overlap, required years of experience, seniority alignment, and technical stack match.
+- Also count transferable skills (e.g. "container orchestration" matches Kubernetes even if JD says K8s).
+- If fewer than 3 required skills from the JD match the resume, cap the score at 60 (MEDIUM or LOW).
+- If the role is in a different field entirely (e.g. marketing vs engineering), score below 40.
+- Do not inflate scores for partial matches — err toward accuracy over optimism.
 
 Return nothing except the JSON object. No markdown, no explanation.
 
@@ -52,7 +56,8 @@ Signal definitions:
   - Requires active or ability to obtain security clearance
   - Mentions clearance level: Secret, Top Secret, TS/SCI, TS-SCI, DoD clearance, Q clearance
   - Says "no visa sponsorship", "will not sponsor", "sponsorship not available"
-  - Says "must be authorized to work" WITHOUT also saying "all authorizations welcome"
+  - Says "must be authorized to work in the United States" or "must be authorized to work" WITHOUT also saying "all authorizations welcome"
+  - Says "eligible to work in the US" or "legally authorized to work" without sponsorship mention
   - Requires work for US federal government, DoD, DHS, DoE, IC (intelligence community)
   - Says "ITAR" or "export control" restrictions apply to the role
 
@@ -92,13 +97,15 @@ Paragraph 1 - Headline verdict: Is this a strong match? State the score context
 and whether applying is worth the candidate time.
  
 Paragraph 2 - Strongest selling points: What specifically in this candidate background
-makes them compelling for this role? Name the experiences, projects, or skills.
- 
+makes them compelling for this role? You MUST name at least 2 specific experiences,
+projects, or skills quoted directly from the resume — not generic praise.
+
 Paragraph 3 - Gaps and severity: What is the candidate missing? Are these
-deal-breakers or easily explained? How significant is each gap for this role?
- 
-Paragraph 4 - Recommendation: Should they apply? If yes, what should they
-emphasize? If no, why not?
+deal-breakers or easily explained? Name only real gaps visible in the resume vs JD —
+do not invent missing skills.
+
+Paragraph 4 - Recommendation: Give a clear yes-or-no on applying with one specific reason.
+Do not be wishy-washy. If no, say why in one sentence.
  
 Write in plain English. No bullet points. No jargon. Sound like a thoughtful
 advisor, not a robot. This will be read by the candidate to help them decide.
