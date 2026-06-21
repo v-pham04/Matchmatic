@@ -1,10 +1,26 @@
+import { Navigate } from "react-router-dom";
 import { supabase } from "../api/supabase";
- 
+import { useAuth } from "../hooks/useAuth";
+
 export default function Login() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: "http://localhost:5173" }
+      options: { redirectTo: window.location.origin },
     });
   };
  

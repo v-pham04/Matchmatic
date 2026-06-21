@@ -8,7 +8,7 @@ import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
  
 export default function App() {
-  const { userId, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
  
   if (loading) {
     return (
@@ -20,7 +20,7 @@ export default function App() {
  
   return (
     <BrowserRouter>
-      {userId ? (
+      {isAuthenticated ? (
         <div className="min-h-screen bg-gray-50">
           <Navbar />
           <main className="max-w-7xl mx-auto py-6 px-4">
