@@ -20,6 +20,9 @@ dist/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Playwright browser binaries (local install)
+.playwright-browsers/
  
 # VS Code
 .vscode/
