@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { fetchJobs } from "../api/jobs";
 import { fetchJobAnalysis } from "../api/analysis";
+import { dismissJob } from "../api/analysis";
 import JobCard from "../components/JobCard";
 import FilterBar from "../components/FilterBar";
 import MatchReportModal from "../components/MatchReportModal";
 import type { JobListing, JobAnalysis } from "../types";
 import { useAuth } from "../hooks/useAuth";
- 
+import toast from "react-hot-toast";
+
 export default function Jobs() {
   const { userId } = useAuth();
   const [jobs, setJobs] = useState<JobListing[]>([]);
@@ -64,24 +66,52 @@ export default function Jobs() {
       setModalLoading(false);
     }
   }
- 
-  function handleSkip() {
-    // TODO Week 5: call PATCH /jobs/{id}/analysis to mark as dismissed
-    setSelectedJob(null);
+
+  async function handleSkip() {
+    if (!selectedJob || !userId) return;
+    try {
+      await dismissJob(selectedJob.id, userId);
+      setJobs(prev => prev.filter(j => j.id !== selectedJob.id));
+      setSelectedJob(null);
+      toast.success("Job removed from feed");
+    } catch (err) {
+      toast.error("Could not dismiss job");
+      setSelectedJob(null);
+    }
   }
- 
+  
   function handleTailor() {
-    // TODO Week 6: navigate to resume tailoring flow
-    alert("Resume tailoring coming in Week 6!");
+    toast("Resume tailoring coming in Week 6!", { icon: "🔧" });
     setSelectedJob(null);
-  }
+  }  
+
+  const LEVEL_ORDER: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+  const [searchQuery, setSearchQuery] = useState("");
  
   // Filter displayed jobs by match level if filter is set
-  const displayedJobs = jobs.filter(job => {
+  const displayedJobs = jobs
+  .filter(job => {
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesTitle   = job.title?.toLowerCase().includes(q);
+      const matchesCompany = job.company?.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesCompany) return false;
+    }
+    // Match level filter
     if (!filters.matchLevel) return true;
     const analysis = analyses[job.id];
-    if (!analysis) return true; // Show unanalyzed jobs while loading
+    if (!analysis) return true;
     return analysis.match_level === filters.matchLevel;
+  })
+  .sort((a, b) => {
+    const aLevel = analyses[a.id]?.match_level ?? "LOW";
+    const bLevel = analyses[b.id]?.match_level ?? "LOW";
+    const levelDiff = (LEVEL_ORDER[aLevel] ?? 2) - (LEVEL_ORDER[bLevel] ?? 2);
+    if (levelDiff !== 0) return levelDiff;
+    const aDate = a.posted_at ? new Date(a.posted_at).getTime() : 0;
+    const bDate = b.posted_at ? new Date(b.posted_at).getTime() : 0;
+    return bDate - aDate;
   });
  
   return (
@@ -90,7 +120,15 @@ export default function Jobs() {
         <h1 className="text-2xl font-bold text-gray-900">Job Feed</h1>
         <p className="text-gray-500 text-sm mt-1">AI-scored matches for your profile</p>
       </div>
- 
+      <div className="mb-4">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search by job title or company..."
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        />
+      </div>
       <FilterBar filters={filters} onChange={setFilters} totalJobs={displayedJobs.length} />
  
       {/* Loading skeletons */}
