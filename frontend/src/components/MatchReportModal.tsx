@@ -52,8 +52,22 @@ export default function MatchReportModal({
             </div>
           )}
  
+          {/* Analysis failure state */}
+          {!loading && analysis?.status === "failed" && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+              <p className="text-red-700 font-medium">Analysis failed</p>
+              <p className="text-red-600 text-sm mt-1">
+                {analysis.error_message || "An unexpected error occurred"}
+              </p>
+              <p className="text-gray-500 text-xs mt-3">
+                This may be due to a temporary API issue. Try again later.
+              </p>
+            </div>
+          )}
+
           {/* Analysis results */}
-          {!loading && analysis && (
+          {!loading && analysis && analysis.status !== "failed" &&
+            (analysis.status === "complete" || analysis.summary || analysis.match_level) && (
             <>
               {/* Score row */}
               <div className="flex items-center gap-3 flex-wrap">
@@ -123,7 +137,7 @@ export default function MatchReportModal({
         <div className="p-6 border-t border-gray-100 flex gap-3">
           <button
             onClick={onTailor}
-            disabled={!analysis}
+            disabled={analysis?.status !== "complete"}
             className="flex-1 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Tailor Resume & Apply

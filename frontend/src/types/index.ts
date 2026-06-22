@@ -25,6 +25,8 @@ export interface JobAnalysis {
   visa_signal: VisaSignal;
   visa_evidence: string | null;
   summary: string | null;
+  status: "pending" | "complete" | "failed" | null;
+  error_message: string | null;
 }
 
 export interface JobWithAnalysis extends JobListing {

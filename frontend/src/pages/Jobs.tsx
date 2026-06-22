@@ -67,9 +67,9 @@ export default function Jobs() {
   }
 
   async function handleSkip() {
-    if (!selectedJob || !userId) return;
+    if (!selectedJob) return;
     try {
-      await dismissJob(selectedJob.id, userId);
+      await dismissJob(selectedJob.id);
       setJobs(prev => prev.filter(j => j.id !== selectedJob.id));
       setSelectedJob(null);
       toast.success("Job removed from feed");

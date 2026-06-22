@@ -35,9 +35,7 @@ export async function fetchJobFeed(
   return res.data;
 }
 
-export async function dismissJob(jobId: string, userId: string): Promise<void> {
-  await client.post(`/jobs/${jobId}/dismiss`, null, {
-    params: { user_id: userId },
-  });
+export async function dismissJob(jobId: string): Promise<void> {
+  await client.post(`/jobs/${jobId}/dismiss`);
 }
 

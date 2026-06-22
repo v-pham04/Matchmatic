@@ -34,11 +34,15 @@ export default function JobCard({ job, analysis, onClick }: Props) {
           {job.location && <p className="text-gray-400 text-xs mt-1">{job.location}</p>}
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
-          {/* AI Score Badge — only shows after analysis is done */}
-          {analysis ? (
+          {/* AI Score Badge — shows score, failure, or pending state */}
+          {analysis?.status === "failed" ? (
+            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+              Analysis failed
+            </span>
+          ) : analysis?.status === "complete" || (analysis?.match_level && analysis?.ats_score != null) ? (
             <MatchBadge score={analysis.ats_score} level={analysis.match_level} />
           ) : (
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full animate-pulse">
               Analysing...
             </span>
           )}
