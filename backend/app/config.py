@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:5173"
     PLAYWRIGHT_BROWSERS_PATH: str = str(DEFAULT_PLAYWRIGHT_BROWSERS_PATH)
+    SUPABASE_JWT_SECRET: str = ""
 
     model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8")
 

@@ -12,6 +12,7 @@ from app.models.job import Job
 from app.models.job_analysis import JobAnalysis
 from app.models.user import User
 from app.models.scraper_run import ScraperRun
+from app.utils.auth import get_current_user_id
 
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -34,10 +35,10 @@ class JobResponse(BaseModel):
 
 
 class JobAnalysisResponse(BaseModel):
-    id: str
-    job_id: str
-    ats_score: int
-    match_level: str
+    id: UUID
+    job_id: UUID
+    ats_score: Optional[int]
+    match_level: Optional[str]
     matching_skills: Optional[List[str]]
     missing_skills: Optional[List[str]]
     experience_match: Optional[str]
@@ -45,6 +46,8 @@ class JobAnalysisResponse(BaseModel):
     visa_signal: Optional[str]
     visa_evidence: Optional[str]
     summary: Optional[str]
+    status: Optional[str]
+    error_message: Optional[str]
 
     class Config:
         from_attributes = True
@@ -69,11 +72,11 @@ def get_jobs(
 # GET /jobs/feed — must be registered before /{job_id} to avoid "feed" being captured as an ID
 @router.get("/feed", response_model=List[JobResponse])
 def get_job_feed(
-    user_id: str,
     country: Optional[str] = Query(None),
     match_level: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """
@@ -151,7 +154,11 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
 
 # GET /jobs/{job_id}/analysis — return the AI analysis for a specific job and user
 @router.get("/{job_id}/analysis", response_model=JobAnalysisResponse)
-def get_job_analysis(job_id: str, user_id: str, db: Session = Depends(get_db)):
+def get_job_analysis(
+    job_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
     analysis = (
         db.query(JobAnalysis)
         .filter(JobAnalysis.job_id == job_id)
@@ -165,7 +172,11 @@ def get_job_analysis(job_id: str, user_id: str, db: Session = Depends(get_db)):
 
 # POST /jobs/{job_id}/dismiss — mark a job as not interested for this user
 @router.post("/{job_id}/dismiss")
-def dismiss_job(job_id: str, user_id: str, db: Session = Depends(get_db)):
+def dismiss_job(
+    job_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
     analysis = (
         db.query(JobAnalysis)
         .filter(JobAnalysis.job_id == job_id)

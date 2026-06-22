@@ -20,4 +20,6 @@ class JobAnalysis(Base):
     visa_evidence = Column(Text, nullable=True)
     summary = Column(Text)                                 # full written analysis
     dismissed = Column(Boolean, default=False)
+    status = Column(String, default="pending")        # pending / complete / failed
+    error_message = Column(Text, nullable=True)
     analyzed_at = Column(DateTime(timezone=True), server_default=func.now())

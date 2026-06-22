@@ -25,13 +25,17 @@ SAMPLE_RESUME = """
 Victoria Nguyen — DevOps Engineer
 
 Experience:
-3 years as DevOps Engineer at StartupCo
-- Deployed 12 microservices to AWS using Docker and Kubernetes
-- Reduced deployment time by 40% using GitHub Actions CI/CD
-- Managed PostgreSQL databases with 99.9% uptime
-- Built monitoring with Grafana and Prometheus
+1 years as System Engineer at Intrastack Solutions
+- Architected AWS infrastructure across 3 isolated environments (Dev/Test/Prod) using Terraform IaC — VPCs, subnets, EC2,
+EKS — cutting provisioning time ~60% and eliminating configuration drift.
+- Engineered Dockerized Mailcow (Postfix, Dovecot, SPF/DKIM/DMARC/TLS), eliminating vendor lock-in; migrated 30+
+mailboxes with zero downtime and cut mail costs ~70% (~$200/month saved).
+- Deployed reproducible Dev/Test/Prod AWS environments via Terraform modules; implemented S3 remote state locking and
+GitHub Actions CI/CD to validate every pull request.
+- Externalized sensitive Terraform backend config from source control via dynamic init workflows, enabling secure public repo
+collaboration.
 
-Skills: Python, AWS, Docker, Kubernetes, PostgreSQL, GitHub Actions, Terraform
+Skills: AWS , Azure, GCP, Bash, Python, Rust, Java, C++, SQL, JavaScript, Terraform, Ansible, Infrastructure as Code, GitHub Actions, CI/CD, Docker, Kubernetes
 """
 
 # Paste 20 real JDs from Indeed (US) and TopCV (Vietnam).
