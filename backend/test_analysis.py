@@ -13,7 +13,7 @@ from app.agents.ats_scorer import run_ats_scorer
 from app.agents.visa_analyzer import run_visa_analyzer
 from app.agents.report_writer import run_report_writer
  
-# Sample job description — paste a real one from Indeed for better results
+# Sample job description — paste a real one for better results
 SAMPLE_JD = """
 Senior Software Engineer - Python / Cloud
 Company: TechCorp Inc.
