@@ -21,7 +21,10 @@ function timeAgo(dateStr: string | null): string {
  
 export default function JobCard({ job, analysis, onClick }: Props) {
   const countryFlag = job.country === "us" ? "🇺🇸" : job.country === "vietnam" ? "🇻🇳" : "";
-  const sourceLabel = job.source === "indeed_us" ? "Indeed" : job.source === "topcv" ? "TopCV" : job.source ?? "";
+  const sourceLabels: Record<string, string> = {
+    jsearch_us: "JSearch",
+  };
+  const sourceLabel = sourceLabels[job.source ?? ""] ?? job.source ?? "Job board";
  
   return (
     <div

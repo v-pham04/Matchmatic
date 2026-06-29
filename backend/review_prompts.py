@@ -38,7 +38,7 @@ collaboration.
 Skills: AWS , Azure, GCP, Bash, Python, Rust, Java, C++, SQL, JavaScript, Terraform, Ansible, Infrastructure as Code, GitHub Actions, CI/CD, Docker, Kubernetes
 """
 
-# Paste 20 real JDs from Indeed (US) and TopCV (Vietnam).
+# Paste 20 real job descriptions (e.g. from JSearch / LinkedIn exports).
 # Replace the placeholder entries with full job description text.
 SAMPLE_JDS: list[dict] = [
     {
@@ -76,7 +76,7 @@ Marketing Manager — B2B SaaS
         "expected_level": "LOW",
         "expected_score_range": (0, 40),
     },
-    # --- Add 2 more real JDs below (mix of US Indeed + Vietnam TopCV) ---
+    # --- Add 2 more real JDs below ---
     {"id": 4,
      "title": "AWS DevOps Engineer", 
      "market": "us", 

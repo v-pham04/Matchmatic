@@ -8,7 +8,7 @@ from app.database import Base
 class Job(Base):
     __tablename__ = "jobs"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    source = Column(String)        # "indeed_us" or "vietnamworks"
+    source = Column(String)        # e.g. "jsearch_us"
     external_id = Column(String)
     url = Column(String, unique=True, nullable=False)
     title = Column(String, nullable=False)

@@ -10,7 +10,6 @@ psycopg2-binary
 celery[redis]
 redis
 google-genai
-playwright
 apscheduler
 python-multipart
 python-jose[cryptography]

@@ -1,10 +1,9 @@
 # backend/app/tasks/scraper_task.py
 from celery import Celery
-from app.config import settings
 from loguru import logger
 
-# Create the Celery app
-# The broker is Redis — it acts as the message queue between your API and the worker
+from app.config import settings
+
 celery_app = Celery(
     "matchmatic",
     broker=settings.REDIS_URL,
@@ -15,7 +14,6 @@ celery_app = Celery(
     ],
 )
 
-# Configure Celery
 celery_app.conf.update(
     task_serializer="json",
     result_serializer="json",
@@ -23,35 +21,33 @@ celery_app.conf.update(
     task_track_started=True,
 )
 
+DEFAULT_KEYWORDS = [
+    "devops engineer",
+    "system engineer",
+    "cloud engineer",
+]
+
+
 @celery_app.task(name="run_scrapers")
-def run_scrapers_task(keywords: list[str] = None, user_id: str = None):
-    if keywords is None:
-        keywords = ["software engineer", "backend developer", "devops", "data engineer"]
- 
-    logger.info(f"Starting scraper task with keywords: {keywords}")
- 
-    from app.scraper.topcv import TopCVScraper
-    from app.scraper.indeed import IndeedScraper
-    from app.tasks.analysis_task import analyze_job_task
+def run_scrapers_task(keywords: list[str] | None = None, user_id: str | None = None):
+    keywords = keywords or DEFAULT_KEYWORDS
+    logger.info(f"Starting JSearch ingestion with keywords: {keywords}")
+
     from app.database import SessionLocal
     from app.models.job import Job
- 
+    from app.scraper.jsearch import run_jsearch_ingestion
+    from app.tasks.analysis_task import analyze_job_task
+
+    if not settings.JSEARCH_API_KEY:
+        raise ValueError("JSEARCH_API_KEY is required — set it in Matchmatic/.env")
+
     results = {}
- 
     try:
-        topcv = TopCVScraper()
-        results["topcv"] = topcv.run(keywords)
-    except Exception as e:
-        logger.error(f"TopCV scraper failed: {e}")
-        results["topcv"] = {"error": str(e)}
- 
-    try:
-        indeed = IndeedScraper()
-        results["indeed"] = indeed.run(keywords)
-    except Exception as e:
-        logger.error(f"Indeed scraper failed: {e}")
-        results["indeed"] = {"error": str(e)}
-    # If a user_id was provided, queue analysis for all unprocessed jobs
+        results["jsearch"] = run_jsearch_ingestion(keywords)
+    except Exception as exc:
+        logger.error(f"JSearch ingestion failed: {exc}")
+        results["jsearch"] = {"error": str(exc)}
+
     if user_id:
         db = SessionLocal()
         try:
@@ -61,10 +57,9 @@ def run_scrapers_task(keywords: list[str] = None, user_id: str = None):
                 analyze_job_task.delay(str(job.id), user_id)
         finally:
             db.close()
- 
+
     logger.info(f"Scraper task complete: {results}")
     return results
 
 
-# Import so Celery worker registers analyze_job when started with -A app.tasks.scraper_task:celery_app
 import app.tasks.analysis_task  # noqa: F401, E402
