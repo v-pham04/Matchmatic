@@ -3,7 +3,7 @@ from app.database import SessionLocal
 from app.models.job import Job
 from app.models.job_analysis import JobAnalysis
 from app.models.user import User
-from app.scraper.base_scraper import is_junk_description
+from app.scraper.job_ingestion import is_junk_description
 from loguru import logger
 from app.utils.cache import get_cached_analysis, set_cached_analysis
 
