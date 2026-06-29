@@ -73,7 +73,10 @@ class JobIngestionService:
             return False
 
         if self.is_too_old(posted_at):
-            logger.debug(f"Too old, skipping: {title} at {company}")
+            logger.debug(
+                f"Too old (>{jsearch_max_age_hours()}h), skipping: {title} at {company} "
+                f"(posted {posted_at.isoformat() if posted_at else 'unknown'})"
+            )
             return False
 
         if not description or len(description.strip()) < MIN_DESCRIPTION_LENGTH:

@@ -1,7 +1,9 @@
 from logging.config import fileConfig
 from app.config import settings
 from app.database import Base
-from app.models import user, job  # noqa: F401
+from app.models import (  # noqa: F401
+    user, job, job_analysis, application, resume_version, scraper_run
+)
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 

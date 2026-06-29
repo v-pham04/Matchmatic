@@ -20,11 +20,9 @@ export async function fetchJobAnalysis(
  
 // Fetch the scored job feed — only jobs above user minimum score (from DB)
 export async function fetchJobFeed(
-  userId: string,
   options?: { country?: string; matchLevel?: string; page?: number }
 ): Promise<JobListing[]> {
   const params: Record<string, any> = {
-    user_id: userId,
     page: options?.page ?? 1,
     limit: 20,
   };

@@ -29,10 +29,10 @@ export default function Jobs() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchJobFeed(userId, {
+      const data = await fetchJobFeed({
         country: filters.country || undefined,
         matchLevel: filters.matchLevel || undefined,
-      });
+      });      
       setJobs(data);
       loadAnalyses(data);
     } catch {
