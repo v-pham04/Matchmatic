@@ -32,25 +32,37 @@ def run_scrapers_task(keywords: list[str] = None, user_id: str = None):
  
     from app.scraper.topcv import TopCVScraper
     from app.scraper.indeed import IndeedScraper
+    from app.scraper.jsearch import JSearchScraper
     from app.tasks.analysis_task import analyze_job_task
     from app.database import SessionLocal
     from app.models.job import Job
- 
+
     results = {}
- 
-    try:
-        topcv = TopCVScraper()
-        results["topcv"] = topcv.run(keywords)
-    except Exception as e:
-        logger.error(f"TopCV scraper failed: {e}")
-        results["topcv"] = {"error": str(e)}
- 
-    try:
-        indeed = IndeedScraper()
-        results["indeed"] = indeed.run(keywords)
-    except Exception as e:
-        logger.error(f"Indeed scraper failed: {e}")
-        results["indeed"] = {"error": str(e)}
+
+    if settings.SCRAPER_USE_PLAYWRIGHT:
+        try:
+            topcv = TopCVScraper()
+            results["topcv"] = topcv.run(keywords)
+        except Exception as e:
+            logger.error(f"TopCV scraper failed: {e}")
+            results["topcv"] = {"error": str(e)}
+
+    if settings.JSEARCH_API_KEY:
+        try:
+            jsearch = JSearchScraper()
+            results["jsearch"] = jsearch.run(keywords)
+        except Exception as e:
+            logger.error(f"JSearch scraper failed: {e}")
+            results["jsearch"] = {"error": str(e)}
+    elif settings.SCRAPER_USE_PLAYWRIGHT:
+        try:
+            indeed = IndeedScraper()
+            results["indeed"] = indeed.run(keywords)
+        except Exception as e:
+            logger.error(f"Indeed scraper failed: {e}")
+            results["indeed"] = {"error": str(e)}
+    else:
+        logger.warning("No job source configured — set JSEARCH_API_KEY or SCRAPER_USE_PLAYWRIGHT=true")
     # If a user_id was provided, queue analysis for all unprocessed jobs
     if user_id:
         db = SessionLocal()
