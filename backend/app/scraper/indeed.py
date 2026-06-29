@@ -1,4 +1,4 @@
-from app.scraper.base_scraper import BaseScraper
+from app.scraper.base_scraper import BaseScraper, is_junk_description
 from datetime import datetime, timezone
 from loguru import logger
 import time
@@ -24,26 +24,22 @@ class IndeedScraper(BaseScraper):
             self.page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(4)
 
-            # Use job_seen_beacon — these are the real job cards, not the preview panel
-            # We read ALL data from the list first, before touching any detail pages
+            # Read ALL card data from the search results page first, before visiting detail pages.
+            # Also grab the card snippet here — used as a fallback if the detail page is blocked.
             card_data = []
             cards = self.page.query_selector_all(".job_seen_beacon")
             logger.info(f"Found {len(cards)} Indeed job cards for '{keyword}'")
 
             for card in cards:
                 try:
-                    # Get the data-jk attribute from the anchor inside the card
-                    # This is the unique job ID Indeed uses
                     link_el = card.query_selector("a[data-jk]")
                     if not link_el:
-                        # Try the h3 title link as fallback
                         link_el = card.query_selector("h3.jobTitle a")
                     if not link_el:
                         continue
 
                     job_id = link_el.get_attribute("data-jk")
 
-                    # Read title from the h3 inside the card
                     title_el = card.query_selector("h3.jobTitle span[title]")
                     if not title_el:
                         title_el = card.query_selector("h3.jobTitle span")
@@ -54,13 +50,11 @@ class IndeedScraper(BaseScraper):
                     if not title:
                         continue
 
-                    # Company name
                     company_el = card.query_selector("[data-testid='company-name']")
                     if not company_el:
                         company_el = card.query_selector(".companyName")
                     company = company_el.inner_text().strip() if company_el else "Unknown Company"
 
-                    # Location
                     location_el = card.query_selector("[data-testid='text-location']")
                     if not location_el:
                         location_el = card.query_selector(".companyLocation")
@@ -71,9 +65,18 @@ class IndeedScraper(BaseScraper):
                         href = link_el.get_attribute("href")
                         if href:
                             job_url = "https://www.indeed.com" + href if not href.startswith("http") else href
-
                     if not job_url:
                         continue
+
+                    # Grab the search-result snippet from the card — used as fallback
+                    # if the detail page is blocked by a login wall or Cloudflare
+                    snippet_el = (
+                        card.query_selector(".job-snippet") or
+                        card.query_selector("ul.job-snippet") or
+                        card.query_selector("[class*='jobCardShelfContainer']") or
+                        card.query_selector("[class*='snippet']")
+                    )
+                    snippet = (snippet_el.inner_text() or "").strip() if snippet_el else ""
 
                     card_data.append({
                         "job_id": job_id,
@@ -81,9 +84,10 @@ class IndeedScraper(BaseScraper):
                         "company": company,
                         "location": location,
                         "url": job_url,
+                        "snippet": snippet,
                     })
 
-                    logger.debug(f"Read card: {title} at {company}")
+                    logger.debug(f"Read card: {title} at {company} (snippet: {len(snippet)} chars)")
 
                 except Exception as e:
                     logger.warning(f"Failed to read Indeed card: {e}")
@@ -127,6 +131,21 @@ class IndeedScraper(BaseScraper):
                             }
                         """) or "").strip()
                         logger.warning(f"Used body fallback for Indeed: {item['title']}")
+
+                    # If the full page was blocked (login wall / Cloudflare), fall back to the
+                    # card snippet captured from the search results page.
+                    if is_junk_description(description) or len(description) < 150:
+                        snippet = item.get("snippet", "")
+                        if snippet and len(snippet) > 50 and not is_junk_description(snippet):
+                            logger.warning(
+                                f"Detail page blocked for '{item['title']}' — using card snippet fallback"
+                            )
+                            description = snippet
+                        else:
+                            logger.warning(
+                                f"No usable description for '{item['title']}' — skipping"
+                            )
+                            continue
 
                     results.append({
                         "title": item["title"],

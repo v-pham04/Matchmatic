@@ -8,8 +8,47 @@ from app.scraper.playwright_env import configure_playwright_browsers
 from app.models.job import Job
 from app.models.scraper_run import ScraperRun
 from loguru import logger
- 
- 
+
+
+# Strings that indicate the scraper hit an error page, login wall, or Cloudflare block
+# instead of the real job description. Any match → reject the job.
+JUNK_SIGNALS = [
+    # Indeed login walls
+    "sign in to view",
+    "create an indeed account",
+    "you must create an indeed account",
+    "sign in to continue",
+    "register to view",
+    # Cloudflare / security blocks
+    "cloudflare",
+    "ray id",
+    "checking your browser",
+    "enable javascript and cookies",
+    "security check",
+    "ddos protection by cloudflare",
+    "access denied",
+    "403 forbidden",
+    "please complete the security check",
+    # Generic HTTP errors
+    "this page is not available",
+    "page not found",
+    "404 not found",
+    "502 bad gateway",
+    "503 service unavailable",
+    # Vietnamese equivalents
+    "trang này không tồn tại",
+    "đăng nhập để xem",
+]
+
+
+def is_junk_description(text: str) -> bool:
+    """Return True if text looks like an error page, login wall, or Cloudflare block."""
+    if not text:
+        return True
+    text_lower = text.lower()
+    return any(signal in text_lower for signal in JUNK_SIGNALS)
+
+
 class BaseScraper(ABC):
     """
     Every scraper (VietnamWorks, Indeed) inherits from this class.
@@ -87,10 +126,14 @@ class BaseScraper(ABC):
             logger.debug(f"Too old, skipping: {title} at {company}")
             return False
 
-        if not description or len((description or "").strip()) < 100:
+        if not description or len((description or "").strip()) < 150:
             logger.warning(f"Skipping job with no description: {title} at {company}")
             return False
- 
+
+        if is_junk_description(description):
+            logger.warning(f"Skipping junk/blocked description: {title} at {company}")
+            return False
+
         job = Job(
             source=self.SOURCE_NAME,
             external_id=external_id,
