@@ -2,7 +2,6 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Monorepo: .env lives at repo root (Matchmatic/.env), not in backend/
 ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 ROOT_DIR = ENV_FILE.parent
 DEFAULT_PLAYWRIGHT_BROWSERS_PATH = ROOT_DIR / ".playwright-browsers"
@@ -18,9 +17,11 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     SECRET_KEY: str
     ENVIRONMENT: str = "development"
-    FRONTEND_URL: str = "http://localhost:5173"
+    FRONTEND_URL: str = "http://localhost:5173/"
     PLAYWRIGHT_BROWSERS_PATH: str = str(DEFAULT_PLAYWRIGHT_BROWSERS_PATH)
     SUPABASE_JWT_SECRET: str = ""
+    TEST_USER_EMAIL: str = ""
+    TEST_USER_ID: str = ""
 
     model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding="utf-8")
 
