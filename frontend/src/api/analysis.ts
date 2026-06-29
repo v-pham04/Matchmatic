@@ -18,27 +18,24 @@ export async function fetchJobAnalysis(
   }
 }
  
-// Fetch the scored job feed — only jobs above user minimum score
+// Fetch the scored job feed — only jobs above user minimum score (from DB)
 export async function fetchJobFeed(
   userId: string,
-  options?: { country?: string; matchLevel?: string; minScore?: number; page?: number }
+  options?: { country?: string; matchLevel?: string; page?: number }
 ): Promise<JobListing[]> {
   const params: Record<string, any> = {
     user_id: userId,
-    min_score: options?.minScore ?? 60,
     page: options?.page ?? 1,
     limit: 20,
   };
   if (options?.country) params.country = options.country;
   if (options?.matchLevel) params.match_level = options.matchLevel;
- 
+
   const res = await client.get<JobListing[]>("/jobs/feed", { params });
   return res.data;
 }
 
-export async function dismissJob(jobId: string, userId: string): Promise<void> {
-  await client.post(`/jobs/${jobId}/dismiss`, null, {
-    params: { user_id: userId },
-  });
+export async function dismissJob(jobId: string): Promise<void> {
+  await client.post(`/jobs/${jobId}/dismiss`);
 }
 

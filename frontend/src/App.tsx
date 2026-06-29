@@ -7,7 +7,7 @@ import ResumeReview from "./pages/ResumeReview";
 import Login from "./pages/Login";
 import { useAuth } from "./hooks/useAuth";
 import { Toaster } from "react-hot-toast";
- 
+
 export default function App() {
   const { isAuthenticated, loading } = useAuth();
  
