@@ -1,7 +1,7 @@
-import { useState } from "react";
-import client from "../api/client";
+import { useState, useEffect } from "react";
 import ResumeUpload from "../components/ResumeUpload";
 import { useAuth } from "../hooks/useAuth";
+import { fetchUser, updateUserSettings } from "../api/users";
 
  
 // The shape of our settings form data
@@ -23,9 +23,41 @@ export default function Settings() {
   const [keywordInput, setKeywordInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
- 
-  // For now using a hardcoded user ID — Week 3 will replace this with real auth
+  const [loadingSettings, setLoadingSettings] = useState(true);
+
   const USER_ID = userId;
+
+  // Load saved settings from backend when userId is available
+  useEffect(() => {
+    if (!USER_ID) {
+      setLoadingSettings(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingSettings(true);
+
+    fetchUser(USER_ID)
+      .then((user) => {
+        if (!active) return;
+        setForm({
+          target_market: (user.target_market as SettingsForm["target_market"]) || "both",
+          visa_check_enabled: user.visa_check_enabled ?? false,
+          min_match_score: user.min_match_score ?? 70,
+          job_keywords: user.job_keywords ?? [],
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to load settings:", err);
+      })
+      .finally(() => {
+        if (active) setLoadingSettings(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [USER_ID]);
 
   const addKeyword = () => {
     const kw = keywordInput.trim();
@@ -43,7 +75,13 @@ export default function Settings() {
     if (!USER_ID) return;
     setSaving(true);
     try {
-      await client.patch(`/users/${USER_ID}/settings`, form);
+      const updated = await updateUserSettings(USER_ID, form);
+      setForm({
+        target_market: (updated.target_market as SettingsForm["target_market"]) || "both",
+        visa_check_enabled: updated.visa_check_enabled ?? false,
+        min_match_score: updated.min_match_score ?? 70,
+        job_keywords: updated.job_keywords ?? [],
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -53,7 +91,13 @@ export default function Settings() {
       setSaving(false);
     }
   };
- 
+
+  if (loadingSettings) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-gray-500">Loading settings...</div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto p-6">
       <h1 className="text-2xl font-bold text-gray-900 mb-1">Settings</h1>

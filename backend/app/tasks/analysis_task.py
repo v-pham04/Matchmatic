@@ -5,63 +5,40 @@ from app.models.job_analysis import JobAnalysis
 from app.models.user import User
 from loguru import logger
 from app.utils.cache import get_cached_analysis, set_cached_analysis
-import uuid
 
-@celery_app.task(name="analyze_job")
-def analyze_job_task(job_id: str, user_id: str):
-    """Run the full AI analysis pipeline for one job + one user."""
- 
-    # Check cache FIRST — skip the entire AI pipeline if already analyzed
-    cached = get_cached_analysis(job_id, user_id)
-    if cached:
-        logger.info(f"Returning cached analysis for job {job_id}")
-        return cached
- 
-    db = SessionLocal()
-    try:
-        # ... rest of the existing analysis code stays the same ...
- 
-        # ADD THIS at the end, just before the return statement:
-        result = {"score": ats_result["score"], "match_level": ats_result["match_level"]}
-        set_cached_analysis(job_id, user_id, result)
-        return result
- 
-    except Exception as e:
-        logger.error(f"Analysis failed for job {job_id}: {e}")
-        db.rollback()
-        raise
-    finally:
-        db.close()
 
-@celery_app.task(name="analyze_job")
-def analyze_job_task(job_id: str, user_id: str):
+@celery_app.task(name="analyze_job", bind=True, max_retries=3)
+def analyze_job_task(self, job_id: str, user_id: str):
     """
     Run the full AI analysis pipeline for one job + one user.
 
     Pipeline:
-    1. Load the job description from the database
-    2. Load the user resume text from the database
+    1. Check Redis cache — skip Gemini if already analyzed recently
+    2. Create/update analysis record with status=pending
     3. Run ATS Scorer → get score, match level, skills
     4. Run Visa Analyzer (only if user has visa toggle ON)
     5. Run Report Writer → get substantive written analysis
-    6. Save all results to job_analyses table
-    7. Mark the job as processed
+    6. Save all results, mark status=complete
+    7. On any failure: set status=failed with error_message, re-raise for Celery retry
     """
+    cached = get_cached_analysis(job_id, user_id)
+    if cached:
+        logger.info(f"Cache HIT for job {job_id} — skipping Gemini pipeline")
+        return cached
+
     db = SessionLocal()
+    analysis = None
     try:
-        # Load the job
         job = db.query(Job).filter(Job.id == job_id).first()
         if not job:
             logger.error(f"analyze_job_task: Job {job_id} not found")
             return
 
-        # Load the user
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             logger.error(f"analyze_job_task: User {user_id} not found")
             return
 
-        # Cannot analyze without a resume
         if not user.resume_text:
             logger.warning(f"User {user_id} has no resume — skipping analysis")
             return
@@ -70,19 +47,34 @@ def analyze_job_task(job_id: str, user_id: str):
             logger.warning(f"Job {job_id} has no description — skipping analysis")
             return
 
+        # Reuse existing record if present (e.g. re-run after a previous failure)
+        analysis = (
+            db.query(JobAnalysis)
+            .filter(JobAnalysis.job_id == job.id, JobAnalysis.user_id == user.id)
+            .first()
+        )
+        if analysis:
+            analysis.status = "pending"
+            analysis.error_message = None
+        else:
+            analysis = JobAnalysis(
+                job_id=job.id,
+                user_id=user.id,
+                status="pending",
+            )
+            db.add(analysis)
+        db.commit()
+
         logger.info(f"Analyzing: {job.title} at {job.company} for user {user.email}")
 
-        # Step 1 — ATS Scoring
         from app.agents.ats_scorer import run_ats_scorer
         ats_result = run_ats_scorer(job.description_raw or "", user.resume_text)
 
-        # Step 2 — Visa Analysis (only if user opted in AND it is a US job)
         visa_result = None
         if user.visa_check_enabled and job.country == "us":
             from app.agents.visa_analyzer import run_visa_analyzer
             visa_result = run_visa_analyzer(job.description_raw or "")
 
-        # Step 3 — Report Writer (substantive written analysis)
         from app.agents.report_writer import run_report_writer
         summary = run_report_writer(
             job_description=job.description_raw or "",
@@ -90,32 +82,38 @@ def analyze_job_task(job_id: str, user_id: str):
             ats_result=ats_result,
         )
 
-        # Step 4 — Save everything to job_analyses table
-        analysis = JobAnalysis(
-            job_id=job.id,
-            user_id=user.id,
-            ats_score=ats_result.get("score", 0),
-            match_level=ats_result.get("match_level", "LOW"),
-            matching_skills=ats_result.get("matching_skills", []),
-            missing_skills=ats_result.get("missing_skills", []),
-            experience_match=ats_result.get("experience_match", "weak"),
-            visa_compatible=visa_result.get("f1_opt_compatible") if visa_result else None,
-            visa_signal=visa_result.get("visa_signal") if visa_result else None,
-            visa_evidence=visa_result.get("evidence") if visa_result else None,
-            summary=summary,
-        )
-        db.add(analysis)
+        analysis.ats_score = ats_result.get("score", 0)
+        analysis.match_level = ats_result.get("match_level", "LOW")
+        analysis.matching_skills = ats_result.get("matching_skills", [])
+        analysis.missing_skills = ats_result.get("missing_skills", [])
+        analysis.experience_match = ats_result.get("experience_match", "weak")
+        analysis.visa_compatible = visa_result.get("f1_opt_compatible") if visa_result else None
+        analysis.visa_signal = visa_result.get("visa_signal") if visa_result else None
+        analysis.visa_evidence = visa_result.get("evidence") if visa_result else None
+        analysis.summary = summary
+        analysis.status = "complete"
+        analysis.error_message = None
 
-        # Step 5 — Mark the job as processed
         job.is_processed = True
         db.commit()
 
+        result = {"score": ats_result["score"], "match_level": ats_result["match_level"]}
+        set_cached_analysis(job_id, user_id, result)
+
         logger.info(f"Analysis complete: score={ats_result['score']} match={ats_result['match_level']}")
-        return {"score": ats_result["score"], "match_level": ats_result["match_level"]}
+        return result
 
     except Exception as e:
         logger.error(f"Analysis failed for job {job_id}: {e}")
-        db.rollback()
-        raise
+        if analysis is not None:
+            try:
+                analysis.status = "failed"
+                analysis.error_message = str(e)[:500]
+                db.commit()
+            except Exception:
+                db.rollback()
+        else:
+            db.rollback()
+        raise  # Re-raise so Celery records the failure
     finally:
         db.close()

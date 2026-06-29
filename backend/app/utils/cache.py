@@ -25,7 +25,7 @@ def get_cached_analysis(job_id: str, user_id: str) -> dict | None:
         key = cache_key(job_id, user_id)
         cached = redis_client.get(key)
         if cached:
-            logger.debug(f"Cache HIT for job {job_id}")
+            logger.info(f"Cache HIT for job {job_id}")
             return json.loads(cached)
         logger.debug(f"Cache MISS for job {job_id}")
         return None
